@@ -1,0 +1,6 @@
+markdown
+pyhull
+opencv-python
+scipy
+scikit-image
+glob2

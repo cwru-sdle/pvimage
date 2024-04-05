@@ -1,0 +1,185 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Welcome to pvimage’s documentation! &#8212; pvimage 0.0.5 documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="welcome-to-pvimage-s-documentation">
+<h1>Welcome to pvimage’s documentation!<a class="headerlink" href="#welcome-to-pvimage-s-documentation" title="Permalink to this headline">¶</a></h1>
+<div class="toctree-wrapper compound">
+</div>
+</div>
+<div class="section" id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+<span class="target" id="module-a_BoW"></span><dl class="function">
+<dt id="a_BoW.BoW">
+<code class="sig-prename descclassname">a_BoW.</code><code class="sig-name descname">BoW</code><span class="sig-paren">(</span><em class="sig-param">filepath</em>, <em class="sig-param">N=64</em>, <em class="sig-param">csv_path='./'</em>, <em class="sig-param">clusters=4</em>, <em class="sig-param">dist=None</em>, <em class="sig-param">pca=False</em>, <em class="sig-param">global_vec_len=125</em>, <em class="sig-param">haralick=False</em>, <em class="sig-param">custom=True</em><span class="sig-paren">)</span><a class="headerlink" href="#a_BoW.BoW" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function constructs a bag of visual words model using local features
+such as KAZE, or FAST.</p>
+<p>Authors: Ben (bgp12)
+Args:</p>
+<blockquote>
+<div><dl class="simple">
+<dt>filepath:str, a path to the top level directory for the images,</dt><dd><p>which can then be contained in subdirectories</p>
+</dd>
+</dl>
+<p>N:int, the number of features the count in the histogram
+csv_path:str, where to save the output .csv file
+clusters:int, the number of clusters to output, e.g. 2 (good, bad)
+dist:float, optional, use distance rather then cluster number for HC.
+pca:bool, use PCA on the bag or words or not
+global_vec_len:int, length to make custom descriptor
+haralick:bool, use Haralick features or not.
+custom:bool, use custom descriptor or not.</p>
+</div></blockquote>
+</dd></dl>
+
+<dl class="function">
+<dt id="a_BoW.global_feat">
+<code class="sig-prename descclassname">a_BoW.</code><code class="sig-name descname">global_feat</code><span class="sig-paren">(</span><em class="sig-param">img</em>, <em class="sig-param">length_mult=2</em><span class="sig-paren">)</span><a class="headerlink" href="#a_BoW.global_feat" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function returns a feature that represents the row-wise
+sum of intensities of an image.</p>
+<dl class="simple">
+<dt>Authors: </dt><dd><p>Ben (bgp12)</p>
+</dd>
+<dt>Args: </dt><dd><dl class="simple">
+<dt>img</dt><dd><p>A NumPy greyscale (0-255) image array</p>
+</dd>
+<dt>length_mult</dt><dd><p>The number of rows to be combined; if the image is 50x50, then a factor
+of 2 will cause the function to return a 25x1 feature vector.</p>
+</dd>
+</dl>
+</dd>
+<dt>Returns:</dt><dd><p>NumPy array: a rows//length_multx1 feature vector</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="function">
+<dt id="a_BoW.haralick_feature_extraction">
+<code class="sig-prename descclassname">a_BoW.</code><code class="sig-name descname">haralick_feature_extraction</code><span class="sig-paren">(</span><em class="sig-param">images</em>, <em class="sig-param">image_array=True</em><span class="sig-paren">)</span><a class="headerlink" href="#a_BoW.haralick_feature_extraction" title="Permalink to this definition">¶</a></dt>
+<dd><p>This function finds the Haralick features from the image(s) for ML classification
+Notes:</p>
+<blockquote>
+<div><p>Authors, Ahmad</p>
+</div></blockquote>
+<dl class="simple">
+<dt>Args:</dt><dd><dl class="simple">
+<dt>images (str): directory where the images are located</dt><dd><p>or
+an image numpy array</p>
+</dd>
+<dt>image_array (bool): True(default), when the numpy object of image is passed</dt><dd><p>false, when the path of the image(s) is passed</p>
+</dd>
+</dl>
+</dd>
+<dt>Returns:</dt><dd><dl class="simple">
+<dt>Four np arrays, feature vectors for all images in direction:</dt><dd><ol class="arabic simple">
+<li><p>0 degrees</p></li>
+<li><p>45 degrees</p></li>
+<li><p>90 degrees</p></li>
+<li><p>135 degrees</p></li>
+<li><p>list of filenames and class</p></li>
+</ol>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="#">pvimage</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="#">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2020, Ahmad Maroof Karimi, Jennifer Braid, Benjamin Pierce, Nicholas Parilla, Roger French.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.4.4</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/index.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
