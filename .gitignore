@@ -26,6 +26,14 @@ Drafts/
 */build/
 build/
 venv/
+*/_build/
+out/
+**/out/
+
+
+# misc
+*.bat
+*.rst
 
 *.egg-info/
 .installed.cfg

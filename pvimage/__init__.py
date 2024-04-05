@@ -18,7 +18,7 @@ def readme():
   """
   import os
   this_dir, this_filename = os.path.split(__file__)
-  DATA_PATH = os.path.join(this_dir, "../README.rst")
+  DATA_PATH = os.path.join(this_dir, "../README.md")
   with open(DATA_PATH) as f:
       print(f.read())
 
