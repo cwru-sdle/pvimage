@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = 'pvimage'
+version = "0.0.10"
+description = "PV EL Image Processing Tool"
+
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    'markdown',
+    'pandas',
+    'pyhull',
+    'opencv-python',
+    'scipy',
+    'scikit-image',
+    'glob2'
+]
+
+license = {file = "LICENSE"}
+
+
+authors = [
+  {name = "Benjamin G. Pierce", email = "bgp12@case.edu"},
+  {name = "Ahmad Maroof Karimi", email = "karimiahmad@ornl.gov"},
+  {name = "Justin S. Fada"},
+  {name = "Nicholas A. Parrilla"},
+  {name = "Roger H. French", email = "rxf131@case.edu"},
+  {name = "Jennifer L. Braid", email = "jlbraid@sandia.gov"}
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.setuptools.packages.find]
+include = ["pvimage*"]
+
+[tool.setuptools_scm]
