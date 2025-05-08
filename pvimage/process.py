@@ -14,7 +14,8 @@ from scipy import stats as st
 import skimage.filters as filters
 from scipy.optimize import fmin_powell
 from operator import attrgetter
-from pyhull import qconvex
+from scipy.spatial import ConvexHull
+from scipy.stats import linregress
 from skimage.color import rgb2gray
 import glob
 import re
@@ -219,8 +220,8 @@ def CellExtractByChangePoint(img, col_ch_pts, row_ch_pts, numRows = 2, numCols =
             cellarrays.append(result)
     return cellarrays
 
-# Planar Indexing an image by finding the smallest bounding 4-gon
-def PlanarIndex(img,imgtype='', ret_mask = False):
+#Planar Indexing an image by finding the smallest bounding 4-gon
+def PlanarIndexQHull(img,imgtype='', ret_mask = False):
     """Performs re-orientation of module in frame.
 
     Broadly, this function performs tasks of filtering, edge detection, 
@@ -231,6 +232,10 @@ def PlanarIndex(img,imgtype='', ret_mask = False):
     Returns:
         list of numpy.ndarray
     """    
+    try:
+        from pyhull import qconvex
+    except Exception as e:
+        raise ImportError("Error: Qhull not installed. Unless you meant to do this, try using the `PlanarIndex` function. ")
     mask = Mask(img,imgtype)
     #endRow = startRow = endCol = startCol = 0
     # Getting the approximate size of the image
@@ -334,6 +339,88 @@ def PlanarIndex(img,imgtype='', ret_mask = False):
         return transformedImg, M , xdim, ydim
     else:
         return transformedImg
+
+def PlanarIndex(img, imgtype='', ret_mask=False):
+    """Performs re-orientation of module in frame using SciPy's ConvexHull and auto-rotation."""
+    mask = Mask(img, imgtype)
+
+    # Pad image/mask if there are edges touching the border
+    for axis, side in [(0, 0), (0, -1), (1, 0), (1, -1)]:
+        if any(mask.take(indices=side, axis=axis)):
+            pad_width = ((10, 0), (0, 0)) if axis == 0 and side == 0 else \
+                        ((0, 10), (0, 0)) if axis == 0 else \
+                        ((0, 0), (10, 0)) if side == 0 else \
+                        ((0, 0), (0, 10))
+            mask = np.pad(mask, pad_width, mode='constant')
+            img = np.pad(img, pad_width + ((0, 0),), mode='constant')
+
+    coords = np.column_stack(np.nonzero(mask))
+    startRow, startCol = coords.min(axis=0)
+    endRow, endCol = coords.max(axis=0)
+    midRows = (startRow + endRow) // 2
+    midCols = (startCol + endCol) // 2
+
+    hull = ConvexHull(coords)
+    vert = coords[hull.vertices]
+
+    segments = [np.array([vert[i], vert[(i + 1) % len(vert)]]) for i in range(len(vert))]
+
+    top, bottom, left, right = [], [], [], []
+    for seg in segments:
+        (y1, x1), (y2, x2) = seg
+        if abs(y1 - y2) < abs(x1 - x2):  # horizontal
+            if y1 < midRows:
+                top.append(seg)
+            else:
+                bottom.append(seg)
+        else:  # vertical
+            if x1 < midCols:
+                left.append(seg)
+            else:
+                right.append(seg)
+
+    def longest_segment(segments):
+        if not segments:
+            return np.array([[0, 0], [0, 0]])
+        return max(segments, key=lambda s: np.linalg.norm(s[0] - s[1]))
+
+    sides = [longest_segment(side) for side in (top, left, bottom, right)]
+
+    intercepts = []
+    for (i, j) in [(0, 1), (1, 2), (2, 3), (3, 0)]:
+        (y1a, x1a), (y1b, x1b) = sides[i].astype(float)
+        (y2a, x2a), (y2b, x2b) = sides[j].astype(float)
+
+        slope1, intercept1 = attrgetter('slope', 'intercept')(st.linregress([x1a, x1b], [y1a, y1b]))
+        if x2a == x2b:
+            x_int = x2a
+        else:
+            slope2, intercept2 = attrgetter('slope', 'intercept')(st.linregress([x2a, x2b], [y2a, y2b]))
+            x_int = (intercept2 - intercept1) / (slope1 - slope2)
+        y_int = slope1 * x_int + intercept1
+        intercepts.append([x_int, y_int])
+    intercepts = np.array(intercepts).astype(np.float32)
+
+    width_top = np.linalg.norm(intercepts[0] - intercepts[1])
+    width_bottom = np.linalg.norm(intercepts[2] - intercepts[3])
+    height_left = np.linalg.norm(intercepts[0] - intercepts[3])
+    height_right = np.linalg.norm(intercepts[1] - intercepts[2])
+
+    xdim = int(max(width_top, width_bottom))
+    ydim = int(max(height_left, height_right))
+
+    pts1 = intercepts
+    pts2 = np.float32([[0, 0], [xdim, 0], [xdim, ydim], [0, ydim]])
+    M = cv2.getPerspectiveTransform(pts1, pts2)
+    transformedImg = cv2.warpPerspective(img, M, (xdim, ydim))
+
+    # rotate if wider than tall
+    if xdim < ydim:
+        rotated = cv2.rotate(transformedImg, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        transformedImg = rotated
+        xdim, ydim = ydim, xdim  # swap
+
+    return (transformedImg, M, xdim, ydim) if ret_mask else transformedImg
 
 def PlanarIndexByMask(img, mask = None, xdim = None, ydim = None):
     """
