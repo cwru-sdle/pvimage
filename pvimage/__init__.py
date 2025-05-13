@@ -5,7 +5,7 @@ algorithms for classification. The two major approaches are supervised
 machine learning and unsupervised machine learning approaches.
 """
 
-import pvimage.process, pvimage.pipelines
+import pvimage.process, pvimage.pipelines, pvimage.io
 
 def readme():
   """This function displays the contents of the README.rst file.

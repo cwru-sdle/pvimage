@@ -16,13 +16,19 @@ from scipy.optimize import fmin_powell
 from operator import attrgetter
 from scipy.spatial import ConvexHull
 from scipy.stats import linregress
-from skimage.color import rgb2gray
+from skimage.color import gray2rgb, rgb2gray
 import glob
 import re
 import os
 from shutil import copyfile
 from skimage import io
 from skimage.transform import resize
+from sklearn.cluster import DBSCAN
+import matplotlib.pyplot as plt
+#from warnings import deprecated
+from skimage import transform
+
+
 def CleanRawData(input_path, output_path, extension = ".tiff"):
     """
     This function cleans raw data provided by the Tau science EL/PL system.
@@ -82,7 +88,10 @@ def Mask(img,imgtype=''):
         numpy.ndarray
     """
     #img_gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-    img_gray = rgb2gray(img)
+    if img.ndim == 3:
+        img_gray = rgb2gray(img)
+    else:
+        img_gray = img
     if 'UVF' in imgtype:
         img_gray = cv2.bitwise_not(img_gray) # For UVF images
     if 'gradient' in imgtype:
@@ -96,6 +105,67 @@ def Mask(img,imgtype=''):
     mask2 = cv2.morphologyEx(mask,cv2.MORPH_OPEN,kernel)
     mask = cv2.morphologyEx(mask2,cv2.MORPH_CLOSE,kernel)
     return mask
+
+
+def cluster_mask(img, eps=2, min_samples=10, threshold = True, plot=False):
+    """
+    Applies Otsu thresholding to a grayscale image, extracts foreground points,
+    clusters with DBSCAN, and returns the largest cluster as a binary mask.
+
+    Parameters:
+    - img: 2D numpy array (grayscale image)
+    - eps: float, DBSCAN neighborhood radius
+    - min_samples: int, minimum points to form a dense region in DBSCAN
+    - threshold: bool, if we apply an otsu thershold first before clustering
+    - plot: bool, whether to show visualization
+
+    Returns:
+    - final_mask: 2D boolean array, mask of the largest cluster
+    """
+    if img.ndim == 3:
+        img = rgb2gray(img)
+
+    if threshold:
+        thresh = filters.threshold_otsu(img)
+        binary = img > thresh
+    else:
+        binary = img
+
+    coords = np.column_stack(np.nonzero(binary))
+
+    if coords.size == 0:
+        raise ValueError("No foreground pixels found after thresholding.")
+
+    db = DBSCAN(eps=eps, min_samples=min_samples, n_jobs = -1).fit(coords)
+    labels = db.labels_
+
+    unique, counts = np.unique(labels[labels != -1], return_counts=True)
+    if len(counts) == 0:
+        raise ValueError("No clusters found by DBSCAN.")
+
+    largest_cluster_label = unique[np.argmax(counts)]
+    largest_cluster_points = coords[labels == largest_cluster_label]
+
+    final_mask = np.zeros_like(binary, dtype=bool)
+    final_mask[largest_cluster_points[:, 0], largest_cluster_points[:, 1]] = True
+
+    # Optional plot
+    if plot:
+        fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+        axes[0].imshow(img, cmap='gray')
+        axes[0].set_title("Original Grayscale")
+        axes[1].imshow(binary, cmap='gray')
+        axes[1].set_title("Otsu Threshold")
+        axes[2].imshow(final_mask, cmap='gray')
+        axes[2].set_title("Largest Cluster")
+        for ax in axes:
+            ax.axis('off')
+        plt.tight_layout()
+        plt.show()
+
+    return final_mask
+
+
 
 #Image rotation by line detection and measurement
 def RotateImage(img,imgtype=''):
@@ -221,6 +291,7 @@ def CellExtractByChangePoint(img, col_ch_pts, row_ch_pts, numRows = 2, numCols =
     return cellarrays
 
 #Planar Indexing an image by finding the smallest bounding 4-gon
+#@deprecated("Use the new planar_index function instead to")
 def PlanarIndexQHull(img,imgtype='', ret_mask = False):
     """Performs re-orientation of module in frame.
 
@@ -340,11 +411,29 @@ def PlanarIndexQHull(img,imgtype='', ret_mask = False):
     else:
         return transformedImg
 
-def PlanarIndex(img, imgtype='', ret_mask=False):
-    """Performs re-orientation of module in frame using SciPy's ConvexHull and auto-rotation."""
-    mask = Mask(img, imgtype)
+def PlanarIndex(img, imgtype='', mask = None, ret_mask=False):
+    """Performs re-orientation of module in frame.
 
-    # Pad image/mask if there are edges touching the border
+    Broadly, this function performs tasks of filtering, edge detection, 
+    corner detection, perspective transformation.
+
+    Args:
+        img (numpy.ndarray): An image array
+        imgtype : passed to Mask
+        ret_mask, bool: to return the mask or not
+    Returns:
+        list of numpy.ndarray
+    """    
+
+    
+    # Ensure 3-channel input for downstream processing (esp. OpenCV)
+    # if img.ndim == 2:  # grayscale
+    #     img = np.stack([img]*3, axis=-1)
+
+    if mask is None:
+        mask = Mask(img, imgtype)
+
+    # Pad image/mask if edges touch the border
     for axis, side in [(0, 0), (0, -1), (1, 0), (1, -1)]:
         if any(mask.take(indices=side, axis=axis)):
             pad_width = ((10, 0), (0, 0)) if axis == 0 and side == 0 else \
@@ -391,16 +480,25 @@ def PlanarIndex(img, imgtype='', ret_mask=False):
         (y1a, x1a), (y1b, x1b) = sides[i].astype(float)
         (y2a, x2a), (y2b, x2b) = sides[j].astype(float)
 
-        slope1, intercept1 = attrgetter('slope', 'intercept')(st.linregress([x1a, x1b], [y1a, y1b]))
-        if x2a == x2b:
+        # Handle vertical segments safely
+        if x1a == x1b:
+            x_int = x1a
+            slope2, int2 = attrgetter('slope', 'intercept')(st.linregress([x2a, x2b], [y2a, y2b]))
+            y_int = slope2 * x_int + int2
+        elif x2a == x2b:
             x_int = x2a
+            slope1, int1 = attrgetter('slope', 'intercept')(st.linregress([x1a, x1b], [y1a, y1b]))
+            y_int = slope1 * x_int + int1
         else:
-            slope2, intercept2 = attrgetter('slope', 'intercept')(st.linregress([x2a, x2b], [y2a, y2b]))
-            x_int = (intercept2 - intercept1) / (slope1 - slope2)
-        y_int = slope1 * x_int + intercept1
+            slope1, int1 = attrgetter('slope', 'intercept')(st.linregress([x1a, x1b], [y1a, y1b]))
+            slope2, int2 = attrgetter('slope', 'intercept')(st.linregress([x2a, x2b], [y2a, y2b]))
+            x_int = (int2 - int1) / (slope1 - slope2)
+            y_int = slope1 * x_int + int1
+
         intercepts.append([x_int, y_int])
     intercepts = np.array(intercepts).astype(np.float32)
 
+    # Calculate dimensions using edge lengths
     width_top = np.linalg.norm(intercepts[0] - intercepts[1])
     width_bottom = np.linalg.norm(intercepts[2] - intercepts[3])
     height_left = np.linalg.norm(intercepts[0] - intercepts[3])
@@ -414,12 +512,10 @@ def PlanarIndex(img, imgtype='', ret_mask=False):
     M = cv2.getPerspectiveTransform(pts1, pts2)
     transformedImg = cv2.warpPerspective(img, M, (xdim, ydim))
 
-    # rotate if wider than tall
-    if xdim < ydim:
-        rotated = cv2.rotate(transformedImg, cv2.ROTATE_90_COUNTERCLOCKWISE)
-        transformedImg = rotated
-        xdim, ydim = ydim, xdim  # swap
+    transformedImg = transformedImg[:, ::-1]
+    transformedImg = transform.rotate(transformedImg, 90)
 
+    #transformedImg = cv2.rotate(transformedImg, cv2.ROTATE_90_CLOCKWISE)
     return (transformedImg, M, xdim, ydim) if ret_mask else transformedImg
 
 def PlanarIndexByMask(img, mask = None, xdim = None, ydim = None):
