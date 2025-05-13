@@ -388,6 +388,10 @@ def PlanarIndexQHull(img,imgtype='', ret_mask = False):
     for j in ((0,1),(1,2),(2,3),(3,0)):
         y1, x1 = points[j[0]].T.astype(float)
         y2, x2 = points[j[1]].T.astype(float)
+        if x1[0]==x1[1]:
+            y1, x1 = points[j[1]].T.astype(float)
+            y2, x2 = points[j[0]].T.astype(float)
+
         slopeh, inth = attrgetter('slope','intercept')(st.linregress(x1,y1))
         if x2[0]==x2[1]:
             x=x2[0]
