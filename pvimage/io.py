@@ -1,7 +1,8 @@
 import numpy as np
 from skimage.color import gray2rgb
+import skimage
 
-def read_txt_file(file, rgb=False):
+def read_txt_file(file, rgb=False, size = None):
     rows = []
     max_len = 0
 
@@ -21,6 +22,10 @@ def read_txt_file(file, rgb=False):
             rows[i].extend([0.0] * (max_len - len(rows[i])))
 
     img = np.array(rows)
+    if size is not None:
+        img = skimage.transform.resize(img, size, 
+                                anti_aliasing=False,
+                                preserve_range = True)
 
     if rgb:
         return gray2rgb(img)
