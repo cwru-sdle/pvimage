@@ -290,9 +290,7 @@ def CellExtractByChangePoint(img, col_ch_pts, row_ch_pts, numRows = 2, numCols =
             cellarrays.append(result)
     return cellarrays
 
-#Planar Indexing an image by finding the smallest bounding 4-gon
-#@deprecated("Use the new planar_index function instead to")
-def PlanarIndexQHull(img,imgtype='', ret_mask = False):
+def PlanarIndex(img,imgtype='', ret_mask = False):
     """Performs re-orientation of module in frame.
 
     Broadly, this function performs tasks of filtering, edge detection, 
@@ -415,7 +413,7 @@ def PlanarIndexQHull(img,imgtype='', ret_mask = False):
     else:
         return transformedImg
 
-def PlanarIndex(img, imgtype='', mask = None, ret_mask=False):
+def PlanarIndexSingleCell(img, imgtype='', mask = None, ret_mask=False):
     """Performs re-orientation of module in frame.
 
     Broadly, this function performs tasks of filtering, edge detection, 
